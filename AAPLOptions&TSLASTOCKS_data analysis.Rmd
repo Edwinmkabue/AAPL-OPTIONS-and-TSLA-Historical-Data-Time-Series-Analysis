@@ -1,0 +1,246 @@
+---
+title: "APPLE INC. OPTIONS and TSLA HISTORICAL QUOTES DATA ANALYSIS"
+output: html_notebook
+---
+
+1.  Get any options data, say from <https://www.marketwatch.com/investing/stock/aapl/options> or any other source, for a given τ = T − t days to maturity for any company of your choice.
+
+##### Collect Options data for the company Apple Inc.(AAPL) from the site marketwatch by web scraping using R as in the code below.
+
+##### (i) Import the web scraping packages "rvest" and "magrittr" for use in the data extraction before requesting and reading the html content of the web page.
+
+##### (ii) Inspect the html content and identify the div class holding the March 2023 options data and extract the data.
+
+##### (iii) Upload the data to csv for cleaning in Excel.
+
+```{r}
+# Import necessary packages
+library(rvest)
+library(magrittr)
+```
+
+```{r}
+# URL of the options data page for AAPL with 30 days of maturity
+url <- "https://www.marketwatch.com/investing/stock/aapl/options"
+
+# Read the Html content of the webpage
+html <- read_html(url)
+
+# Extract table data for March 2023 options
+options_table <- html %>%
+  html_nodes("div[data-tab-pane='March 2023'] table") %>%
+  html_table(header=FALSE) %>%
+  .[[1]]
+
+# View the table data frame
+View(options_table)
+```
+
+```{r}
+write.csv(options_table, "options_data.csv")
+```
+
+##### After cleaning the data import it for analysis
+
+```{r}
+head(options_data)
+```
+
+2.  From the collected secondary data set, provide a summary statistics in tabular form, specifically the Call option bid price and Put options ask price.
+
+```{r}
+# Summary statistics for Call option bid price
+call_bid_summary <- summary(options_data["Bid_c"])
+call_bid_summary
+```
+
+```{r}
+# summary statistics for put options ask price
+put_ask_summary <- summary(options_data["Ask_p"])
+put_ask_summary
+```
+
+```{r}
+# display the summary statistics in a table
+summary_table <- data.frame(
+	Statistics = c("Minimum", "First_Quartile", "Median", "Mean", "Third_Quartile", "Maximum"), 
+	'Call Option Bid Price' = c(call_bid_summary[1], call_bid_summary[2], call_bid_summary[3], call_bid_summary[4], call_bid_summary[5], call_bid_summary[6]),
+	'Put Option Ask Price' = c(put_ask_summary[1], put_ask_summary[2], put_ask_summary[3], put_ask_summary[4], put_ask_summary[5], put_ask_summary[6])
+)
+
+
+summary_table_t <- t(summary_table)
+
+# Print the summary table
+print(summary_table)
+```
+
+3.  Identify the following quantities τ = T − t, St
+
+##### Using the current stock price of 154.57 and the expiration date of options as Mar 24, 2023,time to maturity τ will be given by Expiration date(Mar 24, 2023) minus Current_date(Mar 20, 2023)
+
+##### St is the current stock price which is 154.57
+
+```{r}
+library(dplyr)
+
+# Define the current stock price and expiration date
+current_stock_price <- 154.57
+expiration_date <- as.Date("2023-03-24")
+
+# Calculate the time to maturity (τ) and stock price (St) for each option
+options_data <- options_data %>%
+  mutate(
+    τ = as.numeric(difftime(expiration_date, as.Date("2023-03-15"), units = "days")) / 365,
+    St = current_stock_price
+  )
+
+# View updated options data
+head(options_data)
+```
+
+4.  Remember to get the average of bid and ask for both call and put option which you will plot it against the strike price as suggested below.
+
+```{r}
+averages_data <- data.frame(
+ Strike_Price = options_data$Strike,
+ Average_Call = (options_data$Bid_c + options_data$Ask_c) /2,
+ Average_Put = (options_data$Bid_p + options_data$Ask_p) / 2
+)
+
+averages_data
+```
+
+5.  Plot the put and call options against strike price and discuss on any salient features observed from the graph generated
+
+```{r}
+library(ggplot2)
+
+# Plot the call and put options against strike price
+ggplot(averages_data, aes(x = Strike_Price)) +
+  geom_line(aes(y = Average_Call, color = "Average Call")) +
+  geom_line(aes(y = Average_Put, color = "Average Put")) +
+  scale_color_manual(values = c("blue", "red")) +
+  labs(x = "Strike Price", y = "Option Price", title = "Options vs Strike Price")
+```
+
+##### 1. The call option bid prices increases with increase in strike price while the put options ask prices decrease with increase in strike price which is consistent with the behaviour of call and put options, where call options increase in value as the stock price increases,, while put options increase in value as the stock price decreases.
+
+##### 2. There is a noticeable dip in the call option bid prices at the strike price of around 155 which is close to the current stock price of 154.57 due to the fact that options tend to have more uncertainty hence lower prices.
+
+##### 3. The put option ask prices seems to be moore volatile than the call option bid prices, with greater fluctuations in value at higher strike prices.
+
+##### 4. The call option prices are generally higher than the put option prices, which is expected because call options give the holder the right to buy the stock at the strike price, while put options give the holder the right to sell the stock at the strike price
+
+6.  Plot the difference of call price C and put price P i.e. y = P − C against the strike price (K) graph and make a comment about the resulting graph.
+
+```{r}
+# Calculate the difference between put and call prices
+diff_price <- averages_data$Average_Put - averages_data$Average_Call
+
+# Create a new data frame for plotting
+diff_data <- data.frame(Strike_Price = averages_data$Strike_Price, Diff_Price = diff_price)
+
+# Plot the difference of put price and call price against the strike price 
+ggplot(diff_data, aes(x = Strike_Price, y = Diff_Price)) +
+  geom_line(color = "purple") +
+  labs(x= "Strike Price", y = "Put Price - Call Price", title = "Difference of Put and Call Prices vs Strike Price")
+```
+
+##### 1. It is evident from the graph that the difference between the put and call prices is highest when the strike price is close to the current stock price of 154.57.
+
+##### 2. As the strike price moves further away from the current stock price , the difference between the put and call prices decreases. This is because the put option becomes less valuable and the call option becomes more valuable as the strike price moves further away from the current stock price.
+
+### TSLA DATA ANALYSIS
+
+1.  Organize your data, clean it up and sort it out where necessary ready for use in R software. Make sure that the data set is arranged in the ascending order, from the earliest observation to the latest observation.
+
+##### Download the data for the past 5 years from the site <https://finance.yahoo.com/quote/TSLA/history?p=TSLA> and import it.
+
+```{r}
+head(Historical_Data)
+```
+
+2.  Draw a time plot of the adjusted closing share price, (if you are dealing with share price data) or any other column of interest from your data, and discuss any resulting salient features observed from the time-plot
+
+```{r}
+# Import packages
+library(TSstudio)
+
+plot.ts(Historical_Data[,6], lwd=2, col=c(4), main="Time plot")
+plot.ts(Historical_Data[,6], lwd=2, col=c(2), main="Time plot", ylab="USD", xlab="Daily Observation")
+```
+
+##### From the time plot, we can observe that the adjusted closing share price for Tesla has been highly volatile over time with several periods of rapid increase and decrease in the share price, indicating high levels of uncertainty and risk in the market.
+
+##### Additionally, there appears to be an overall positive trend in the share price, with a general upward movement over time. However, this trend is not linear and there are several periods where the share price experiences significant drops suggesting that investing in Tesla may be risky but potentially lucrative due to its high volatility and positive trend.
+
+2.  Does the time plot show any presence of trend? Hint: Use ACF function to confirm this where necessary
+
+```{r}
+acf(Historical_Data[,6])
+```
+
+##### The output of the ACF function shows a strong positive autocorrelation at lag 1, indicating that the value of the time series at one point is highly correlated with its value at the previous point in time.
+
+##### The ACF function also shows a gradual decrease in autocorrelation as the lag increases which is also consistent with a trend.
+
+##### We can therefore conclude present of a trend in the Tesla adjusted closing share price time series.
+
+3.  If there exists a trend, assume its a non linear one and can be modelled by the following model St = A exp [Bt + ϑt] , ϑ ∼ N(0, σ2 ), σ \> 0 Transform your data, in order to estimate the parameters A, B using simple regression approach to fit the proposed model
+
+```{r}
+tt <- 1:length(Historical_Data$`Adj Close`)
+fit1 <- lm(log(`Adj Close`) ~ tt, data = Historical_Data)
+summary(fit1)
+
+A<-exp(as.numeric(fit1$coef[1]))
+B<-as.numeric(fit1$coef[2])
+
+Phat<-A*exp(B*tt)
+```
+
+4.  Plot the estimated trend against the time plot and compare the two graphs
+
+```{r}
+plot.ts(Historical_Data[,6],lwd=2,col=c(4),main="Share price timeplot",
+xlab="Time in days",ylab="Price ")
+lines(tt,Phat,lwd=2,col=2,lty=c(2))
+```
+
+##### The estimated trend captures the overall upeard trend in the data, but there are some significant deviations from this trend, particularly in the later years. This suggests that the non-linear model may not be a perfect fit for the data, and that there may be other factors influencing the share price beyond just time. The estimated trend however provides a reasonable approximation of the underlying trend in the data.
+
+5.  Determine the coefficient of determination R\^2 of the proposed model and explain what it implies.
+
+```{r}
+summary(fit1)
+```
+
+##### The R\^2 Value is 0.7888. This value measures the proportions of variance in the dependent variable(ln(st)) that is explained by the independent variable (time) which means that approximately 78% of the variance in ln(st) can be explained by time. This suggests that time is a significant factor in determining the share price of Tesla.
+
+6.  Investigate εt = ln St − ln ybt , by computing the mean and the variance of the residuals εt , where ybt = Abexp[Bb]
+
+```{r}
+ library(fBasics)
+basicStats(resd)
+```
+
+7.  Draw histogram of the residuals and check if they are normally distributed as assumed from our model
+
+```{r}
+resd<-as.numeric(fit1$residuals)
+hist(resd,freq=FALSE,breaks=15)
+curve(dnorm(x,mean=mean(resd),sd=sd(resd)),
+col=c(2),lty=2,lwd=3,add=TRUE)
+```
+
+##### Based on the histogram and normal probability plot, it appears that the residuals are approximately normally distributed.
+
+```{r}
+acf(resd,col=c(3),lwd=3,
+main=bquote(Residuals~~ epsilon[i]))
+acf(resd^2,col=c(2),lwd=3,
+main=bquote(Residuals~~epsilon[i]^2))
+```
+
+##### The additional code calculates and plots the autocorrelation function (ACF) of the residuals and their squared values which serves as a further assessment on the adequacy of the model and any potential issues with the residuals.
